@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Skymail Run - Bush Pilot Mail Courier</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #1a1433; color: #fff; font-family: system-ui, -apple-system, sans-serif; overflow: hidden; }
+  #wrap { position: relative; width: 100vw; height: 100vh; }
+  canvas#game { display: block; width: 100vw; height: 100vh; }
+  .hidden { display: none !important; }
+  #hud { position: absolute; top: 0; left: 0; right: 0; padding: 10px 14px 22px; display: flex; gap: 18px; align-items: flex-start; pointer-events: none; font-size: 15px; text-shadow: 0 1px 4px rgba(0,0,0,0.85), 0 0 8px rgba(0,0,0,0.5); background: linear-gradient(to bottom, rgba(8,6,28,0.55), rgba(8,6,28,0)); }
+  #hud .stat b { color: #ffd166; }
+  #hud .stat { white-space: nowrap; flex-shrink: 0; }
+  #hud .right { margin-left: auto; text-align: right; }
+  #fuelwrap { width: 160px; height: 12px; background: rgba(0,0,0,0.55); border: 1px solid #fff; border-radius: 6px; overflow: hidden; margin-top: 3px; }
+  #hud-fuelbar { height: 100%; width: 100%; background: #5ee6a8; }
+  #gauges { position: absolute; left: 14px; bottom: 14px; display: flex; gap: 10px; pointer-events: none; }
+  #gauges canvas { background: transparent; }
+  #hint { position: absolute; bottom: 14px; right: 16px; font-size: 13px; opacity: 0.9; text-shadow: 0 1px 3px rgba(0,0,0,0.8); text-align: right; background: rgba(10,8,32,0.45); padding: 4px 8px; border-radius: 6px; }
+  .screen { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(12,8,32,0.72); z-index: 5; }
+  .panel { background: rgba(20,16,48,0.92); border: 2px solid #ffd166; border-radius: 14px; padding: 28px 34px; max-width: 640px; text-align: center; }
+  .panel h1 { font-size: 44px; color: #ffd166; letter-spacing: 1px; }
+  .panel h2 { font-size: 28px; color: #ffd166; margin-bottom: 10px; }
+  .panel p { margin: 8px 0; line-height: 1.5; font-size: 15px; }
+  .panel .sub { color: #bfe8ff; font-size: 16px; }
+  .mission-btn { display: block; width: 100%; margin: 8px 0; padding: 10px; font-size: 16px; background: #2b2a6b; color: #fff; border: 2px solid #7ec8ff; border-radius: 8px; cursor: pointer; }
+  .mission-btn.selected { background: #ffd166; color: #1a1433; border-color: #ffd166; font-weight: bold; }
+  .big-btn { margin-top: 12px; padding: 12px 26px; font-size: 18px; background: #ffd166; color: #1a1433; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; }
+  .ghost-btn { margin-top: 10px; padding: 9px 18px; font-size: 15px; background: transparent; color: #fff; border: 1px solid #fff; border-radius: 8px; cursor: pointer; }
+  #best-list { margin-top: 10px; font-size: 14px; color: #cfe8ff; }
+  .controls { font-size: 13px; color: #d8d8f0; margin-top: 12px; line-height: 1.6; }
+  #done-score { font-size: 34px; color: #5ee6a8; font-weight: bold; margin: 10px 0; }
+  #crash-reason { color: #ff8a8a; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game" width="1280" height="720"></canvas>
+  <div id="hud">
+    <div class="stat">ALT <b id="hud-alt">0</b> ft</div>
+    <div class="stat">SPD <b id="hud-spd">0</b> kt</div>
+    <div class="stat">HDG <b id="hud-hdg">090°</b></div>
+    <div class="stat">FUEL <b id="hud-fuel">100%</b><div id="fuelwrap"><div id="hud-fuelbar"></div></div></div>
+    <div class="stat">SKOR <b id="hud-score">0</b></div>
+    <div class="stat">WAKTU <b id="hud-time">0:00</b></div>
+    <div class="stat"><b id="hud-ring">Ring 0/5</b><br><span id="hud-wind"></span></div>
+    <div class="right">
+      <div id="hud-mission">Dawn Mail Run</div>
+      <div id="hud-package">Paket: Surat Fajar</div>
+    </div>
+  </div>
+  <div id="gauges">
+    <canvas id="gauge-alt" width="92" height="92"></canvas>
+    <canvas id="gauge-spd" width="92" height="92"></canvas>
+  </div>
+  <div id="hint">W/S pitch &nbsp; A/D throttle &nbsp; Spasi rem &nbsp; P jeda &nbsp; R ulang &nbsp; M suara</div>
+
+  <div id="screen-title" class="screen">
+    <div class="panel">
+      <h1>SKYMAIL RUN</h1>
+      <p class="sub">Pilot kurir pos di Lembah Kestrel. Terbang melewati ring, antar paket, mendarat mulus di landasan terpencil.</p>
+      <p id="title-mission-name">Dawn Mail Run</p>
+      <button class="mission-btn" data-action="select-mission" data-mission="dawn-mail">1. Dawn Mail Run: 5 ring, mendarat di Pinecrest (240 dtk)</button>
+      <button class="mission-btn" data-action="select-mission" data-mission="ridge-storm">2. Ridge Storm: 8 ring, angin kencang (180 dtk)</button>
+      <button class="mission-btn" data-action="select-mission" data-mission="island-hop">3. Island Hop: 3 landasan, 3 paket, tanpa ring (300 dtk)</button>
+      <button class="big-btn" data-action="start">MULAI MISI (Enter)</button>
+      <div id="best-list"></div>
+      <p class="controls">Kontrol: Atas/Bawah atau W/S pitch &middot; Kiri/Kanan atau A/D throttle &middot; Spasi rem udara &middot; P jeda &middot; R restart &middot; M mute. Ring pertama sudah terlihat begitu terbang.</p>
+      <button class="ghost-btn" id="btn-mute" data-action="mute">Suara: Hidup (M)</button>
+    </div>
+  </div>
+
+  <div id="screen-pause" class="screen hidden">
+    <div class="panel">
+      <h2>JEDA</h2>
+      <p>Pesawat menunggu di udara Lembah Kestrel.</p>
+      <p class="controls">W/S pitch &middot; A/D throttle &middot; Spasi rem &middot; P lanjut &middot; R restart &middot; M mute</p>
+      <button class="big-btn" data-action="pause">LANJUT (P)</button>
+      <button class="ghost-btn" data-action="back-title">Kembali ke Judul</button>
+    </div>
+  </div>
+
+  <div id="screen-done" class="screen hidden">
+    <div class="panel">
+      <h2 id="done-title">Misi Selesai</h2>
+      <div id="done-score">0 poin</div>
+      <p id="done-detail"></p>
+      <p id="done-best"></p>
+      <button class="big-btn" data-action="play-again">MAIN LAGI (Enter)</button>
+      <button class="ghost-btn" data-action="back-title">Pilih Misi Lain</button>
+    </div>
+  </div>
+
+  <div id="screen-crash" class="screen hidden">
+    <div class="panel">
+      <h2 id="crash-reason">Crash</h2>
+      <p id="crash-detail"></p>
+      <p class="controls">Tips: jaga kecepatan di atas stall, turun pelan ke landasan, dan pantau fuel.</p>
+      <button class="big-btn" data-action="play-again">COBA LAGI (R)</button>
+      <button class="ghost-btn" data-action="back-title">Kembali ke Judul</button>
+    </div>
+  </div>
+</div>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
