@@ -1,6 +1,8 @@
 // render.js - menggambar pesawat, terrain, langit senja, awan, ring, landasan, partikel.
 // Semua grafis Canvas 2D (bentuk, gradasi, poligon), tanpa gambar eksternal.
 
+import { nextRing, nextStrip } from './terrain.js';
+
 export function createRenderer(canvas) {
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
@@ -204,7 +206,6 @@ export function createRenderer(canvas) {
     ctx.strokeStyle = 'rgba(255,255,255,0.75)'; ctx.lineWidth = 3;
     for (let i = 0; i < 4; i++) {
       const x = 16 + ((time * 60 + i * 90) % 360);
-      const y = 150 + i * 0;
       ctx.beginPath();
       ctx.moveTo(x, 152);
       ctx.lineTo(x + (mission.wind < 0 ? -34 : 34), 152);
@@ -231,14 +232,39 @@ export function createRenderer(canvas) {
     drawParticles(state.particles, camX);
     drawPlane(state.plane, camX);
     drawWind(state.mission, camX, state.time);
-    // Penanda ring berikutnya: panah kecil di atas pesawat.
-    const nr = state.world.rings.find((r) => !r.passed);
-    if (nr && state.mode === 'playing') {
-      const sx = nr.x - camX;
+    // Penanda target berikutnya: arah + jarak + naik/turun, supaya pemain
+    // tidak kehilangan target saat ring/landasan di luar layar. Setelah ring
+    // terakhir, target beralih ke landasan tujuan.
+    const ring = nextRing(state.world);
+    const target = ring || nextStrip(state.world, state.landings);
+    if (target && state.mode === 'playing') {
+      const sx = target.x - camX;
+      const dx = target.x - state.plane.x;
+      const dy = target.y - state.plane.y;
+      const label = ring ? 'RING ' + target.index : 'LANDASAN';
+      // Jarak dalam kaki, skala ft/px sama dengan skala ketinggian (2,2 ft/px).
+      const distFt = Math.max(0, Math.round(Math.hypot(dx, dy) * 2.2 / 10) * 10);
+      const vert = dy < -90 ? ' ▲' : dy > 90 ? ' ▼' : '';
+      ctx.save();
+      ctx.fillStyle = '#ffe066'; ctx.font = 'bold 16px sans-serif';
+      ctx.shadowColor = 'rgba(0,0,0,0.8)'; ctx.shadowBlur = 6;
       if (sx > W - 60) {
-        ctx.fillStyle = '#ffe066'; ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'right';
-        ctx.fillText('RING ' + nr.index + ' ▶', W - 16, 96);
+        ctx.textAlign = 'right';
+        ctx.fillText(label + ' ▶ ' + distFt + ' ft' + vert, W - 16, 96);
+      } else if (sx < 60) {
+        ctx.textAlign = 'left';
+        ctx.fillText('◀ ' + label + ' ' + distFt + ' ft' + vert, 16, 96);
       }
+      ctx.restore();
+    }
+    // Peringatan stall: kecepatan di bawah batas, pesawat mulai jatuh.
+    if (state.mode === 'playing' && state.plane.stalled && !state.plane.landed) {
+      ctx.save();
+      ctx.globalAlpha = 0.75 + 0.25 * Math.sin(state.time * 6);
+      ctx.fillStyle = '#ff5a5a'; ctx.font = 'bold 22px sans-serif'; ctx.textAlign = 'center';
+      ctx.shadowColor = 'rgba(0,0,0,0.85)'; ctx.shadowBlur = 8;
+      ctx.fillText('STALL! Tambah throttle (D / →)', W / 2, 140);
+      ctx.restore();
     }
   }
 

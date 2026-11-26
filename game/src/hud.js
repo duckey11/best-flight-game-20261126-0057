@@ -52,7 +52,11 @@ export function createHud() {
       const p = state.plane;
       const m = state.mission;
       if (els.alt) els.alt.textContent = String(state.altFeet);
-      if (els.spd) els.spd.textContent = String(state.speedKnots);
+      if (els.spd) {
+        els.spd.textContent = String(state.speedKnots);
+        // SPD merah saat stall supaya bahaya terbaca tanpa melihat canvas.
+        els.spd.style.color = p.stalled ? '#ff5a5a' : '';
+      }
       if (els.hdg) els.hdg.textContent = String(state.heading).padStart(3, '0') + '°';
       if (els.fuel) els.fuel.textContent = Math.round(p.fuel) + '%';
       if (els.fuelBar) {

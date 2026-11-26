@@ -19,6 +19,7 @@ export function createPlane(x, y) {
     onGround: false,
     landed: false,
     crashed: false,
+    stalled: false,
     crashReason: '',
     softLanding: false,
     bank: 0,
@@ -46,7 +47,9 @@ export function stepPlane(p, input, dt, wind, groundYAt) {
   p.speed += (target - p.speed) * Math.min(1, dt * 1.4);
 
   // Lift: butuh kecepatan minimum. Terlalu lambat = stall, pesawat jatuh.
+  // p.stalled diekspos ke HUD/render supaya pemain dapat peringatan saat stall.
   const stalled = p.speed < STALL_SPEED;
+  p.stalled = stalled;
   p.vx = Math.cos(p.pitch) * p.speed + (wind || 0);
   // Canvas: y membesar ke bawah, jadi pitch negatif (hidung naik) harus mengurangi y.
   let vy = Math.sin(p.pitch) * p.speed;
